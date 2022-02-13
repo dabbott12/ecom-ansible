@@ -1,0 +1,4 @@
+target2 ansible_host=192.168.0.239 ansible_connection=ssh ansible_ssh_pass=osboxes.org
+
+[servers]
+target2

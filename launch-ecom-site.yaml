@@ -1,0 +1,91 @@
+-
+  name: "Launch Ecom Site"
+  hosts: servers
+  become: true
+  become_method: sudo
+  tasks:
+    -
+      name: Install firewalld
+      yum:
+        name: firewalld
+        state: latest
+    -
+      name: Enable firewalld
+      command: sudo service firewalld start
+    -
+      name: Start firewalld on startup
+      command: sudo systemctl enable firewalld
+    -
+      name: Install Mariadb
+      yum:
+        name: mariadb-server
+        state: latest
+    -
+      name: Enable mariadb
+      command: sudo service mariadb start
+    -
+      name: Start mariadb on startup
+      command: sudo systemctl enable mariadb
+    -
+      name: Configure firewall for database
+      command: sudo firewall-cmd --permanent --zone=public --add-port=3306/tcp
+    -
+      name: Reload firewall
+      command: sudo firewall-cmd --reload
+    - 
+      name: create user 
+      community.mysql.mysql_user:  
+        name: ecomuser  
+        host: "localhost"  
+        password: "ecompassword"  
+        login_user: ecomuser 
+        login_password: "ecompassword"  
+        check_implicit_admin: yes  
+        priv: "*.*:ALL,GRANT"    
+    - 
+      name: Creating a script
+      copy:
+        dest: "./db-load-script.sql"
+        content: |
+          USE ecomdb;
+          CREATE TABLE products (id mediumint(8) unsigned NOT NULL auto_increment,Name varchar(255) default NULL,Price varchar(255) default NULL, ImageUrl varchar(255) default NULL,PRIMARY KEY (id)) AUTO_INCREMENT=1;
+          INSERT INTO products (Name,Price,ImageUrl) VALUES ("Laptop","100","c-1.png"),("Drone","200","c-2.png"),("VR","300","c-3.png"),("Tablet","50","c-5.png"),("Watch","90","c-6.png"),("Phone Covers","20","c-7.png"),("Phone","80","c-8.png"),("Laptop","150","c-4.png"); 
+    - 
+      name: create a new database  
+      community.mysql.mysql_db: name=ecomdb state=present login_user=ecomuser login_password="ecompassword"
+    - 
+      name: insert sample data into database  
+      community.mysql.mysql_db: name=ecomdb state=import target=./db-load-script.sql login_user=ecomuser login_password="ecompassword"
+    -
+      name: install web components
+      command: sudo yum install -y httpd php php-mysqlnd php-pdo php-gd php-mbstring
+    -
+      name: Configure firewall for web
+      command: sudo firewall-cmd --permanent --zone=public --add-port=80/tcp
+    -
+      name: Reload firewall
+      command: sudo firewall-cmd --reload
+    -
+      name: change httpd from index.html to .php
+      command: sudo sed -i 's/index.html/index.php/g' /etc/httpd/conf/httpd.conf
+    -
+      name: enable httpd
+      command: sudo service httpd start
+    -
+      name: start httpd at startup
+      command: sudo systemctl enable httpd
+    -
+      name: install Git
+      yum:
+        name: Git
+        state: latest
+    -
+      name: clone ecom repo
+      command: sudo git clone https://github.com/kodekloudhub/learning-app-ecommerce.git /var/www/html/
+    -
+      name: update index.php to localhost
+      command: sudo sed -i 's/172.20.1.101/localhost/g' /var/www/html/index.php
+    -
+      name: curl test
+      command: curl http://localhost
+
